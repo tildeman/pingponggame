@@ -86,16 +86,6 @@ def Prompt():
         elif command == "exit" or command == "quit":
             r="The user exited the shell."
             raise PingPongexception(r)
-        elif command == "bruh":
-            print("""A man has fallen into the river in Lego City.
-Start the new rescue helicopter.
-HEY!
-Build the helicopter.
-Race to the rescue.
-Prepare the lifeline.
-Lower the stretcher.
-And make the rescue.
-The new emergency collection from Lego City.""")
         elif command == "help":
             print("""Commands:
 openserver - Opens a server
