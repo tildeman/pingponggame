@@ -1,10 +1,12 @@
 import socket
-import time
 import os
 import pygame
 import threading
 import random
+import sys
 
+class PingPongexception(Exception):
+    pass
 
 class Server:
     def __init__(self):
@@ -19,9 +21,13 @@ class Server:
             self.HOST.bind(server_address)
             self.HOST.listen(1)
             print("Server is open")
-        except IndexError or OSError:
+            return 0
+        except IndexError:
             print(server_address, "is not valid")
-
+            return 1
+        except OSError:
+            print(server_address, "is already in use")
+            return 2
 
 class Client:
     def __init__(self):
@@ -33,8 +39,6 @@ class Client:
 
     def connect(self):
         while True:
-            os.system("cls")
-            showInfo(self.PORT)
             IP = input("Address: ")  # self.hostAddress
             PORT = int(input("Port: "))  # self.PORT
             try:
@@ -42,11 +46,11 @@ class Client:
                 print("Connected to", (IP, PORT))
                 break
             except ConnectionRefusedError:
-                print((IP, PORT), "refuse to connect, wait 1 second to continue")
-                time.sleep(1)
-            except IndexError or OSError:
-                print((IP, PORT), "is not valid, wait 1 second to continue")
-                time.sleep(1)
+                print((IP, PORT), "refused to connect")
+            except IndexError:
+                print((IP, PORT), "is not valid")
+            except OSError:
+                print((IP, PORT), "is not valid")
 
 
 def showInfo(port):
@@ -58,28 +62,50 @@ def showInfo(port):
 
 
 def CommandLine():
-    defaultPORT = 12000
+    defaultport = 12000
+    if sys.platform=='win32':
+        os.system("cls")
+    else:
+        os.system("clear")
+    showInfo(defaultport)
+def Prompt():
     connection = Server()
     while True:
-        os.system("cls")
-        showInfo(defaultPORT)
-        command = input("Command: ")
+        command = input("pingpongshell> ")
         if command == "openserver":
             connection.openServer()
             while True:
                 client, address = connection.HOST.accept()
                 if client:  # if client connected
                     print("Connected by", address)
-                    return connection.HOST, client,
+                    return connection.HOST, client
         elif command == "connect":
             connection = Client()
             connection.connect()
             break
-        elif command == "exit":
-            break
+        elif command == "exit" or command == "quit":
+            r="The user exited the shell."
+            raise PingPongexception(r)
+        elif command == "bruh":
+            print("""A man has fallen into the river in Lego City.
+Start the new rescue helicopter.
+HEY!
+Build the helicopter.
+Race to the rescue.
+Prepare the lifeline.
+Lower the stretcher.
+And make the rescue.
+The new emergency collection from Lego City.""")
+        elif command == "help":
+            print("""Commands:
+openserver - Opens a server
+connect    - Connects to an existing server
+exit/quit  - Exits the shell
+help       - Prints this help page
+""")
         else:
-            print("Command '" + command + "' not found, wait 1 second to continue")
-            time.sleep(1)
+            print("Command '" + command + """' not found
+Type 'help' for help.""")
     return connection.HOST, False
 
 
@@ -129,12 +155,10 @@ class Player:
             host.sendall(location.encode("utf-8"))
         except ConnectionResetError:
             print("Partner is disconnected")
-            time.sleep(1)
-            exit(-1)
+            pygame.quit()
         except ConnectionAbortedError:
             print("Your partner software has some errors")
-            time.sleep(1)
-            exit(-1)
+            pygame.quit()
 
     def render(self):
         WHITE = (255, 255, 255)
@@ -150,6 +174,7 @@ class Competitor:
 
         self.ball_location = [10, 10]
         self.point = 0
+        self.reqhaserrors=0
 
     def handlingRequest(self, client):
         try:
@@ -162,28 +187,32 @@ class Competitor:
             self.ball_location[1] = int(location[2])
             self.point = int(location[3])
         except ConnectionResetError:
-            print("Partner is disconnected")
-            time.sleep(1)
-            exit(-1)
+            print("The competitor disconnected")
+            self.reqhaserrors=1
         except ConnectionAbortedError:
-            print("Your partner software has some errors")
-            time.sleep(1)
-            exit(-1)
+            print("The competitor has issues with their thread")
+            self.reqhaserrors=2
+        except BrokenPipeError:
+            print("The competitor disconnected")
+            self.reqhaserrors=1
+        except IndexError:
+            print("The competitor disconnected")
+            self.reqhaserrors=1
 
     def render(self):
         WHITE = (255, 255, 255)
         pygame.draw.rect(self.interface, WHITE, (self.location[0], self.location[1], self.WIDTH, self.HEIGHT))
 
-
-pygame.init()
-
-
 class PingPong:
+    init_dir=os.path.dirname(__file__)
     def __init__(self):
         self.WIDTH, self.HEIGHT = 1000, 500
         self.screen = None
 
-        icon = pygame.image.load("icon.png")
+        if sys.platform=='win32':
+            icon = pygame.image.load("icon.png")
+        else:
+            icon = pygame.image.load(os.path.join(PingPong.init_dir,"icon.png"))
         pygame.display.set_icon(icon)
 
     def scoreBoard(self, player_point, competitor_point):
@@ -193,7 +222,7 @@ class PingPong:
         player_point = str(player_point)
         competitor_point = str(competitor_point)
 
-        font = "C://Windows/Fonts/cour.ttf"
+        font = os.path.join(PingPong.init_dir,"cour.ttf")
         size = 48
         render_font = pygame.font.Font(font, size)
 
@@ -204,10 +233,11 @@ class PingPong:
         self.screen.blit(renderCompetitorPoint, (MIDDLE[0] + 50, MIDDLE[1] - 25))
 
     def start(self):
+        pygame.init()
         frame = pygame.time.Clock()
         FPS = 60
 
-        host, server = CommandLine()
+        host, server = Prompt()
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
         if server:  # server
             pygame.display.set_caption("Ping Pong ! Server")
@@ -262,6 +292,9 @@ class PingPong:
             sending.start()
             ball_collision.start()
 
+            if (competitor.reqhaserrors):
+                break
+
             player.point = ball.player_point
             self.scoreBoard(player.point, competitor.point)
 
@@ -272,7 +305,11 @@ class PingPong:
             frame.tick(FPS)
             pygame.display.update()
         host.close()
+        pygame.quit()
 
 
 if __name__ == "__main__":
-    PingPong().start()
+    n=PingPong()
+    CommandLine()
+    while True:
+        n.start()
