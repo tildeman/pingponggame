@@ -1,9 +1,9 @@
 import socket
 import os
-import pygame
 import threading
 import random
 import sys
+import pygame
 
 class PingPongexception(Exception):
     pass
@@ -32,7 +32,6 @@ class Server:
 class Client:
     def __init__(self):
         self.HOST = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.PORT = 12000
 
         self.hostName = socket.gethostname()
         self.hostAddress = socket.gethostbyname(self.hostName)
@@ -73,19 +72,20 @@ def Prompt():
     while True:
         command = input("pingpongshell> ")
         if command == "openserver":
-            connection.openServer()
-            while True:
-                client, address = connection.HOST.accept()
-                if client:  # if client connected
-                    print("Connected by", address)
-                    return connection.HOST, client
+            con=connection.openServer()
+            if con==0:
+                while True:
+                    client, address = connection.HOST.accept()
+                    if client:  # if client connected
+                        print("Connected by", address)
+                        return connection.HOST, client
         elif command == "connect":
             connection = Client()
             connection.connect()
             break
         elif command == "exit" or command == "quit":
-            r="The user exited the shell."
-            raise PingPongexception(r)
+            res="The user exited the shell."
+            raise PingPongexception(res)
         elif command == "help":
             print("""Commands:
 openserver - Opens a server
@@ -138,21 +138,28 @@ class Player:
         self.interface = surface
         self.speed = 5
         self.point = 0
+        self.reqhaserrors=0
 
     def sendingRequest(self, host, ball_location):
         try:
             location = "%s %s %s %s" % (self.location[1], ball_location[0], ball_location[1], self.point)
             host.sendall(location.encode("utf-8"))
         except ConnectionResetError:
-            print("Partner is disconnected")
-            pygame.quit()
+            print("The competitor disconnected")
+            self.reqhaserrors=1
         except ConnectionAbortedError:
-            print("Your partner software has some errors")
-            pygame.quit()
+            print("The competitor has issues with their thread")
+            self.reqhaserrors=2
+        except BrokenPipeError:
+            print("The competitor disconnected")
+            self.reqhaserrors=1
+        except IndexError:
+            print("The competitor disconnected")
+            self.reqhaserrors=1
 
     def render(self):
-        WHITE = (255, 255, 255)
-        pygame.draw.rect(self.interface, WHITE, (self.location[0], self.location[1], self.WIDTH, self.HEIGHT))
+        white= (255, 255, 255)
+        pygame.draw.rect(self.interface, white, (self.location[0], self.location[1], self.WIDTH, self.HEIGHT))
 
 
 class Competitor:
@@ -172,7 +179,6 @@ class Competitor:
             location = data_received.split()
 
             self.location[1] = int(location[0])
-            # ball_location[0] = midOfScreen + (midOfScreen - competitor_location)
             self.ball_location[0] = 500 + (500 - int(location[1]))
             self.ball_location[1] = int(location[2])
             self.point = int(location[3])
@@ -190,21 +196,14 @@ class Competitor:
             self.reqhaserrors=1
 
     def render(self):
-        WHITE = (255, 255, 255)
-        pygame.draw.rect(self.interface, WHITE, (self.location[0], self.location[1], self.WIDTH, self.HEIGHT))
+        white = (255, 255, 255)
+        pygame.draw.rect(self.interface, white, (self.location[0], self.location[1], self.WIDTH, self.HEIGHT))
 
 class PingPong:
     init_dir=os.path.dirname(__file__)
     def __init__(self):
         self.WIDTH, self.HEIGHT = 1000, 500
         self.screen = None
-
-        if sys.platform=='win32':
-            icon = pygame.image.load("icon.png")
-        else:
-            icon = pygame.image.load(os.path.join(PingPong.init_dir,"icon.png"))
-        pygame.display.set_icon(icon)
-
     def scoreBoard(self, player_point, competitor_point):
         GREY = (128, 128, 128)
         MIDDLE = [self.WIDTH // 2, self.HEIGHT // 2]
@@ -224,6 +223,13 @@ class PingPong:
 
     def start(self):
         pygame.init()
+
+        if sys.platform=='win32':
+            icon = pygame.image.load("icon.png")
+        else:
+            icon = pygame.image.load(os.path.join(PingPong.init_dir,"icon.png"))
+        pygame.display.set_icon(icon)
+
         frame = pygame.time.Clock()
         FPS = 60
 
@@ -282,7 +288,7 @@ class PingPong:
             sending.start()
             ball_collision.start()
 
-            if (competitor.reqhaserrors):
+            if (competitor.reqhaserrors or player.reqhaserrors):
                 break
 
             player.point = ball.player_point
