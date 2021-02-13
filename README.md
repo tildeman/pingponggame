@@ -7,4 +7,4 @@ pingpongshell> help
 # Dependencies
 - pygame
 # Giấy phép / License
-None
+MIT License
