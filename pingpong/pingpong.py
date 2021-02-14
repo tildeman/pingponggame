@@ -36,20 +36,22 @@ class Client:
         self.hostName = socket.gethostname()
         self.hostAddress = socket.gethostbyname(self.hostName)
 
+        self.IP=self.PORT=None
+
     def connect(self):
         while True:
-            IP = input("Address: ")  # self.hostAddress
-            PORT = int(input("Port: "))  # self.PORT
+            self.IP = input("Address: ")  # self.hostAddress
+            self.PORT = int(input("Port: "))  # self.PORT
             try:
-                self.HOST.connect((IP, PORT))
-                print("Connected to", (IP, PORT))
+                self.HOST.connect((self.IP, self.PORT))
+                print("Connected to", (self.IP, self.PORT))
                 break
             except ConnectionRefusedError:
-                print((IP, PORT), "refused to connect")
+                print(self.IP+':'+str(self.PORT), "refused to connect")
             except IndexError:
-                print((IP, PORT), "is not valid")
+                print(self.IP+':'+str(self.PORT), "is not valid")
             except OSError:
-                print((IP, PORT), "is not valid")
+                print(self.IP+':'+str(self.PORT), "is not valid")
 
 
 def showInfo(port):
@@ -82,7 +84,7 @@ def Prompt():
         elif command == "connect":
             connection = Client()
             connection.connect()
-            break
+            return connection.HOST, False
         elif command == "exit" or command == "quit":
             res="The user exited the shell."
             raise PingPongexception(res)
@@ -96,7 +98,6 @@ help       - Prints this help page
         else:
             print("Command '" + command + """' not found
 Type 'help' for help.""")
-    return connection.HOST, False
 
 
 class Ball:
